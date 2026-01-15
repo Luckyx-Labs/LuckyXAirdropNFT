@@ -1,15 +1,14 @@
-# Remix compiler artifacts
-**/artifacts/
-**/artifacts/**
+# Compiler files
+cache/
+out/
 
-# Remix plugin state folders
-deps/
-states/
+# Ignores development broadcast logs
+!/broadcast
+/broadcast/*/31337/
+/broadcast/**/dry-run/
 
-# Debug info
-*.dbg.json
-*.tsbuildinfo
+# Docs
+docs/
 
-# Optional
+# Dotenv file
 .env
-.env.local
