@@ -1,24 +1,21 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.24;
 
 import "forge-std/Test.sol";
-import "../src/BaseAirdropNFT.sol";
+import "../src/PioneerBadgeNFT.sol";
 
-contract BaseAirdropNFTTest is Test {
-    BaseAirdropNFT public nft;
+contract PioneerBadgeNFTTest is Test {
+    PioneerBadgeNFT public nft;
     
     address public owner = address(this);
     address public user1 = address(0x1);
     address public user2 = address(0x2);
     address public user3 = address(0x3);
-    address public royaltyReceiver = address(0x100);
     
     string constant BASE_URI = "https://arweave.net/metadata/";
-    string constant CONTRACT_URI = "https://arweave.net/contract.json";
-    uint96 constant ROYALTY_FEE = 500; // 5%
     
     // Merkle tree data for testing
-    // Leaves: [keccak256(abi.encodePacked(0, user1)), keccak256(abi.encodePacked(1, user2)), keccak256(abi.encodePacked(2, user3))]
+    // Leaves: [keccak256(abi.encode(0, user1)), keccak256(abi.encode(1, user2)), keccak256(abi.encode(2, user3))]
     bytes32 public merkleRoot;
     bytes32[] public proof1;
     bytes32[] public proof2;
@@ -26,20 +23,17 @@ contract BaseAirdropNFTTest is Test {
 
     function setUp() public {
         // Deploy contract
-        nft = new BaseAirdropNFT(
+        nft = new PioneerBadgeNFT(
             "TestNFT",
             "TNFT",
-            BASE_URI,
-            CONTRACT_URI,
-            royaltyReceiver,
-            ROYALTY_FEE
+            BASE_URI
         );
         
         // Build merkle tree for 3 users
-        // Leaf nodes
-        bytes32 leaf0 = keccak256(abi.encodePacked(uint256(0), user1));
-        bytes32 leaf1 = keccak256(abi.encodePacked(uint256(1), user2));
-        bytes32 leaf2 = keccak256(abi.encodePacked(uint256(2), user3));
+        // Leaf nodes - using abi.encode to match contract
+        bytes32 leaf0 = keccak256(abi.encode(uint256(0), user1));
+        bytes32 leaf1 = keccak256(abi.encode(uint256(1), user2));
+        bytes32 leaf2 = keccak256(abi.encode(uint256(2), user3));
         
         // Sort and hash pairs for merkle tree
         bytes32 hash01 = _hashPair(leaf0, leaf1);
@@ -72,13 +66,6 @@ contract BaseAirdropNFTTest is Test {
         assertEq(nft.owner(), owner);
         assertEq(nft.totalSupply(), 0);
         assertEq(nft.mintActive(), false);
-        assertEq(nft.contractURI(), CONTRACT_URI);
-    }
-
-    function test_RoyaltyInfo() public view {
-        (address receiver, uint256 amount) = nft.royaltyInfo(1, 10000);
-        assertEq(receiver, royaltyReceiver);
-        assertEq(amount, 500); // 5% of 10000
     }
 
     // ============ Admin Function Tests ============
@@ -90,7 +77,7 @@ contract BaseAirdropNFTTest is Test {
 
     function test_SetMerkleRoot_EmitsEvent() public {
         vm.expectEmit(true, false, false, false);
-        emit BaseAirdropNFT.MerkleRootUpdated(merkleRoot);
+        emit PioneerBadgeNFT.MerkleRootUpdated(merkleRoot);
         nft.setMerkleRoot(merkleRoot);
     }
 
@@ -127,27 +114,27 @@ contract BaseAirdropNFTTest is Test {
         assertEq(nft.tokenURI(1), newURI);
     }
 
-    function test_SetContractURI() public {
-        string memory newURI = "https://new.contract.uri/";
-        nft.setContractURI(newURI);
-        assertEq(nft.contractURI(), newURI);
+    function test_SetBaseURI_EmitsEvent() public {
+        string memory newURI = "https://new.uri/";
+        vm.expectEmit(false, false, false, true);
+        emit PioneerBadgeNFT.BaseURIUpdated(newURI);
+        nft.setBaseURI(newURI);
     }
 
-    function test_SetDefaultRoyalty() public {
-        address newReceiver = address(0x200);
-        nft.setDefaultRoyalty(newReceiver, 1000); // 10%
-        
-        (address receiver, uint256 amount) = nft.royaltyInfo(1, 10000);
-        assertEq(receiver, newReceiver);
-        assertEq(amount, 1000);
+    function test_SetBaseURI_RevertIfNotOwner() public {
+        vm.prank(user1);
+        vm.expectRevert();
+        nft.setBaseURI("https://new.uri/");
     }
 
-    function test_DeleteDefaultRoyalty() public {
-        nft.deleteDefaultRoyalty();
-        
-        (address receiver, uint256 amount) = nft.royaltyInfo(1, 10000);
-        assertEq(receiver, address(0));
-        assertEq(amount, 0);
+    function test_SetBaseURI_RevertIfEmpty() public {
+        vm.expectRevert(PioneerBadgeNFT.EmptyBaseURI.selector);
+        nft.setBaseURI("");
+    }
+
+    function test_Constructor_RevertIfEmptyBaseURI() public {
+        vm.expectRevert(PioneerBadgeNFT.EmptyBaseURI.selector);
+        new PioneerBadgeNFT("Test", "TST", "");
     }
 
     // ============ Mint Tests ============
@@ -157,6 +144,8 @@ contract BaseAirdropNFTTest is Test {
         nft.setMintActive(true);
         
         vm.prank(user1);
+        vm.expectEmit(true, true, true, true);
+        emit PioneerBadgeNFT.Claimed(user1, 0, 1);
         nft.mint(0, proof1);
         
         assertEq(nft.totalSupply(), 1);
@@ -185,7 +174,7 @@ contract BaseAirdropNFTTest is Test {
         // mintActive is false by default
         
         vm.prank(user1);
-        vm.expectRevert("Mint not active");
+        vm.expectRevert(PioneerBadgeNFT.MintNotActive.selector);
         nft.mint(0, proof1);
     }
 
@@ -194,7 +183,7 @@ contract BaseAirdropNFTTest is Test {
         // merkleRoot is bytes32(0) by default
         
         vm.prank(user1);
-        vm.expectRevert("Root not set");
+        vm.expectRevert(PioneerBadgeNFT.MerkleRootNotSet.selector);
         nft.mint(0, proof1);
     }
 
@@ -206,7 +195,7 @@ contract BaseAirdropNFTTest is Test {
         nft.mint(0, proof1);
         
         vm.prank(user1);
-        vm.expectRevert("Already minted");
+        vm.expectRevert(abi.encodeWithSelector(PioneerBadgeNFT.AlreadyMinted.selector, 0));
         nft.mint(0, proof1);
     }
 
@@ -216,7 +205,7 @@ contract BaseAirdropNFTTest is Test {
         
         // Use wrong proof
         vm.prank(user1);
-        vm.expectRevert("Invalid proof");
+        vm.expectRevert(abi.encodeWithSelector(PioneerBadgeNFT.InvalidProof.selector, user1, 0));
         nft.mint(0, proof2); // proof2 is for user2
     }
 
@@ -226,7 +215,7 @@ contract BaseAirdropNFTTest is Test {
         
         // User1 tries to mint with wrong index
         vm.prank(user1);
-        vm.expectRevert("Invalid proof");
+        vm.expectRevert(abi.encodeWithSelector(PioneerBadgeNFT.InvalidProof.selector, user1, 1));
         nft.mint(1, proof1); // index 1 is for user2
     }
 
@@ -277,10 +266,6 @@ contract BaseAirdropNFTTest is Test {
         assertTrue(nft.supportsInterface(0x5b5e139f)); // ERC721Metadata
     }
 
-    function test_SupportsInterface_ERC2981() public view {
-        assertTrue(nft.supportsInterface(0x2a55205a)); // ERC2981
-    }
-
     function test_SupportsInterface_ERC165() public view {
         assertTrue(nft.supportsInterface(0x01ffc9a7)); // ERC165
     }
@@ -293,6 +278,9 @@ contract BaseAirdropNFTTest is Test {
     }
 
     function testFuzz_SetBaseURI(string memory uri) public {
+        // Skip empty URIs as they should revert
+        vm.assume(bytes(uri).length > 0);
+        
         nft.setBaseURI(uri);
         
         // Mint a token to verify
@@ -304,37 +292,13 @@ contract BaseAirdropNFTTest is Test {
         assertEq(nft.tokenURI(1), uri);
     }
 
-    function testFuzz_SetContractURI(string memory uri) public {
-        nft.setContractURI(uri);
-        assertEq(nft.contractURI(), uri);
-    }
-
-    function testFuzz_RoyaltyFee(uint96 feeNumerator) public {
-        // Fee must be <= 10000 (100%)
-        feeNumerator = uint96(bound(feeNumerator, 0, 10000));
-        
-        nft.setDefaultRoyalty(royaltyReceiver, feeNumerator);
-        
-        (, uint256 amount) = nft.royaltyInfo(1, 10000);
-        assertEq(amount, feeNumerator);
-    }
-
-    function testFuzz_RoyaltyReceiver(address receiver) public {
-        vm.assume(receiver != address(0));
-        
-        nft.setDefaultRoyalty(receiver, ROYALTY_FEE);
-        
-        (address actualReceiver, ) = nft.royaltyInfo(1, 10000);
-        assertEq(actualReceiver, receiver);
-    }
-
-    function testFuzz_IsMinted_BitMapIndices(uint256 index) public {
+    function testFuzz_IsMinted_BitMapIndices(uint256 index) public view {
         // Test that isMinted works correctly for various indices
         index = bound(index, 0, 10000);
         assertFalse(nft.isMinted(index));
     }
 
-    function testFuzz_MintedBitMap_WordIndex(uint256 index) public view {
+    function testFuzz_MintedBitMap_WordIndex(uint256 index) public pure {
         // Verify bitmap storage layout
         uint256 wordIndex = index / 256;
         uint256 bitIndex = index % 256;
@@ -352,8 +316,6 @@ contract BaseAirdropNFTTest is Test {
         assertGe(nft.totalSupply(), 0);
     }
 
-    function invariant_OwnerNeverZero() public view {
-        // Contract owner should never be zero address
-        assertTrue(nft.owner() != address(0));
-    }
+    // Note: Removed invariant_OwnerNeverZero as renounceOwnership() 
+    // from Ownable allows setting owner to zero address by design
 }
