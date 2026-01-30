@@ -19,11 +19,11 @@ A gas-efficient NFT airdrop smart contract using Merkle Tree verification, with 
 
 ```
 ├── src/
-│   └── BaseAirdropNFT.sol      # Main contract
+│   └── PioneerBadgeNFT.sol      # Main contract
 ├── script/
-│   └── BaseAirdropNFT.s.sol    # Deployment script
+│   └── PioneerBadgeNFT.s.sol    # Deployment script
 ├── test/
-│   └── BaseAirdropNFT.t.sol    # Test files
+│   └── PioneerBadgeNFT.t.sol    # Test files
 ├── lib/                         # Dependencies
 │   ├── forge-std/
 │   ├── openzeppelin-contracts/
@@ -105,7 +105,7 @@ ETHERSCAN_API_KEY=your_etherscan_api_key
 
 ```shell
 source .env
-forge script script/BaseAirdropNFT.s.sol:BaseAirdropNFTDeploy --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
+forge script script/PioneerBadgeNFT.s.sol:PioneerBadgeNFTDeploy --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
 ```
 
 ### 3. Verify Contract
@@ -118,18 +118,18 @@ forge verify-contract \
     --verifier-url https://api.etherscan.io/v2/api?chainid=<CHAIN_ID> \
     --etherscan-api-key $ETHERSCAN_API_KEY \
     <DEPLOYED_CONTRACT_ADDRESS> \
-    src/BaseAirdropNFT.sol:BaseAirdropNFT
+    src/PioneerBadgeNFT.sol:PioneerBadgeNFT
 ```
 
 Example (Base Sepolia):
 
 ```shell
 forge verify-contract \
-    --chain 84532 \
-    --verifier-url https://api.etherscan.io/v2/api?chainid=84532 \
+    --chain 8453 \
+    --verifier-url https://api.etherscan.io/v2/api?chainid=8453 \
     --etherscan-api-key $ETHERSCAN_API_KEY \
-    0xYourContractAddress \
-    src/BaseAirdropNFT.sol:BaseAirdropNFT
+    0xC3fA98FbD5562F7544C1Df586ED4f136505079A1 \
+    src/PioneerBadgeNFT.sol:PioneerBadgeNFT
 ```
 
 ## Contract Interface
